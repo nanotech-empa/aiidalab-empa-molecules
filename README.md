@@ -8,11 +8,11 @@ This Jupyter-based app is intended to be run with [AiiDAlab](https://www.materia
 
 Assuming that the app was registered, you can install it directly via the app store in AiiDAlab or on the command line with:
 ```
-aiidalab install molecules
+aiidalab install aiidalab-empa-molecules
 ```
 Otherwise, you can also install it directly from the repository:
 ```
-aiidalab install molecules@https://github.com/nanotech-empa/molecules
+aiidalab install aiidalab-empa-molecules@git+https://github.com/nanotech-empa/aiidalab-empa-molecules.git
 ```
 
 ## Usage
