@@ -1,12 +1,14 @@
-from dataclasses import dataclass
 import threading
-import traitlets
-import ipywidgets as ipw
+from dataclasses import dataclass
+
+import aiida_nanotech_empa.utils.gaussian_wcs_postprocess as pp
 import aiidalab_widgets_base as awb
+import ipywidgets as ipw
+import traitlets
 from aiida import engine, orm
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from IPython.display import clear_output, display
-import aiida_nanotech_empa.utils.gaussian_wcs_postprocess as pp
+
 
 class NodeViewWidget(ipw.VBox):
 
@@ -172,7 +174,6 @@ class WorkChainSelectorWidget(ipw.HBox):
 
 @awb.register_viewer_widget("process.workflow.workchain.WorkChainNode.")
 class WorkChainViewer(ipw.VBox):
-
     def __init__(self, node, **kwargs):
         if node.process_label != "GaussianSpinWorkChain":
             raise KeyError(str(node.node_type))
@@ -187,7 +188,7 @@ class WorkChainViewer(ipw.VBox):
             </h4>
             """
         )
-        
+
         self._output = ipw.Output()
 
         with self._output:
@@ -197,8 +198,13 @@ class WorkChainViewer(ipw.VBox):
                 engine.ProcessState.RUNNING,
                 engine.ProcessState.WAITING,
             ):
-                display(ipw.HTML("Simulation is still running, no results shown (yet)."))
-            elif node.process_state in (engine.ProcessState.EXCEPTED, engine.ProcessState.KILLED):
+                display(
+                    ipw.HTML("Simulation is still running, no results shown (yet).")
+                )
+            elif node.process_state in (
+                engine.ProcessState.EXCEPTED,
+                engine.ProcessState.KILLED,
+            ):
                 display(ipw.HTML("Simulation couldn't be completed, sorry."))
             elif node.process_state is engine.ProcessState.FINISHED:
                 if node.exit_status == 0:
@@ -212,13 +218,16 @@ class WorkChainViewer(ipw.VBox):
                     with out2:
                         pp.plot_cube_images(node.outputs.gs_cube_images)
                     tab.children = [out1, out2]
-                    
+
                     display(tab)
                 else:
-                    display(ipw.HTML("Simulation is completed, but has a non-zero exit status."))
+                    display(
+                        ipw.HTML(
+                            "Simulation is completed, but has a non-zero exit status."
+                        )
+                    )
 
         super().__init__(
             children=[self.title, self._output],
             **kwargs,
         )
-

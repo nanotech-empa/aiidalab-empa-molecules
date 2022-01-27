@@ -24,5 +24,3 @@ Here may go a few sreenshots / animated gifs illustrating how to use the app.
 MIT
 
 ## Contact
-
-
