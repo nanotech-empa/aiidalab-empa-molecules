@@ -1,13 +1,12 @@
+import aiidalab_widgets_base as awb
 import ipywidgets as ipw
 import traitlets
-import aiidalab_widgets_base as awb
-
 from aiida import engine, orm, plugins
 
 from .widgets import NodeViewWidget
 
 StructureData = plugins.DataFactory("structure")
-GaussianSpinWorkChain = plugins.WorkflowFactory('nanotech_empa.gaussian.spin')
+GaussianSpinWorkChain = plugins.WorkflowFactory("nanotech_empa.gaussian.spin")
 
 
 class StructureSelectionStep(ipw.VBox, awb.WizardAppWidgetStep):
@@ -21,12 +20,12 @@ class StructureSelectionStep(ipw.VBox, awb.WizardAppWidgetStep):
                 awb.StructureUploadWidget(title="From computer"),
                 awb.OptimadeQueryWidget(embedded=True),
                 awb.StructureBrowserWidget(title="AiiDA database"),
-                awb.SmilesWidget(title="SMILES")
+                awb.SmilesWidget(title="SMILES"),
             ],
-            editors = [
+            editors=[
                 awb.BasicStructureEditor(title="Edit structure"),
-                ],
-            node_class='StructureData',
+            ],
+            node_class="StructureData",
         )
         self.manager.observe(self._update_state, ["structure_node"])
 
@@ -38,7 +37,6 @@ class StructureSelectionStep(ipw.VBox, awb.WizardAppWidgetStep):
                 """
             )
         self.description = description
-
 
         self.confirm_button = ipw.Button(
             description="Confirm",
@@ -97,10 +95,10 @@ class StructureSelectionStep(ipw.VBox, awb.WizardAppWidgetStep):
     def reset(self):  # unconfirm
         self.confirmed_structure = None
         self.manager.structure = None
-        
+
+
 class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
     """Widget to prepare gaussian inputs."""
-
 
     inputs = traitlets.Dict()
     input_structure = traitlets.Instance(StructureData, allow_none=True)
@@ -109,39 +107,55 @@ class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
 
         self.dft_functional = ipw.Dropdown(
             description="DFT functional:",
-            value='B3LYP',
+            value="B3LYP",
             options=[
-                ('B3LYP', 'B3LYP'),
-                ('PBE', 'PBEPBE'),
-                ('PBE0', 'PBE1PBE'),
-                ('HSE06', 'HSEH1PBE'),
-                ('BLYP', 'BLYP'),
-                ('wB97XD', 'wB97XD'),
+                ("B3LYP", "B3LYP"),
+                ("PBE", "PBEPBE"),
+                ("PBE0", "PBE1PBE"),
+                ("HSE06", "HSEH1PBE"),
+                ("BLYP", "BLYP"),
+                ("wB97XD", "wB97XD"),
             ],
-            style={'description_width':'initial'}
+            style={"description_width": "initial"},
         )
         self.empirical_dispersion = ipw.Dropdown(
             description="Empirical dispersion:",
-            value='GD3',
-            options=[('GD2', 'GD2'), ('GD3', 'GD3'), ('GD3BJ', 'GD3BJ') , ('None', '')],
-            style={'description_width':'initial'}
+            value="GD3",
+            options=[("GD2", "GD2"), ("GD3", "GD3"), ("GD3BJ", "GD3BJ"), ("None", "")],
+            style={"description_width": "initial"},
         )
-        basis_sets = ['STO-3G', "3-21G", "6-21G", "6-31G", "6-311G", '6-311G**',
-                      "6-311+G", '6-311+G**', 'Def2SVP', 'Def2TZVP', 'Def2QZVP', 'Def2TZVPP']
+        basis_sets = [
+            "STO-3G",
+            "3-21G",
+            "6-21G",
+            "6-31G",
+            "6-311G",
+            "6-311G**",
+            "6-311+G",
+            "6-311+G**",
+            "Def2SVP",
+            "Def2TZVP",
+            "Def2QZVP",
+            "Def2TZVPP",
+        ]
         self.basis_set_opt = ipw.Dropdown(
             description="Basis set for optimization:",
             options=basis_sets,
-            style={'description_width':'initial'}
+            style={"description_width": "initial"},
         )
         self.basis_set_scf = ipw.Dropdown(
             description="Basis set for SCF:",
             options=basis_sets,
-            style={'description_width':'initial'}
+            style={"description_width": "initial"},
         )
-        self.multiplicity_list = ipw.Text(description="Multiplicity list:", value="1", style={'description_width':'initial'})
+        self.multiplicity_list = ipw.Text(
+            description="Multiplicity list:",
+            value="1",
+            style={"description_width": "initial"},
+        )
 
         self.observe(self._update_state, ["inputs", "input_structure"])
-        
+
         self.confirm_button = ipw.Button(
             description="Confirm",
             tooltip="Confirm the currently selected structure and go to the next step.",
@@ -152,8 +166,18 @@ class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
         )
         self.confirm_button.on_click(self.confirm)
 
-        super().__init__([self.dft_functional, self.empirical_dispersion, self.basis_set_opt, self.basis_set_scf, self.multiplicity_list, self.confirm_button], **kwargs)
-        
+        super().__init__(
+            [
+                self.dft_functional,
+                self.empirical_dispersion,
+                self.basis_set_opt,
+                self.basis_set_scf,
+                self.multiplicity_list,
+                self.confirm_button,
+            ],
+            **kwargs
+        )
+
     def reset(self):
         self.inputs = {}
 
@@ -166,15 +190,17 @@ class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
 
     def confirm(self, _=None):
         self.inputs = dict(
-            functional = orm.Str(self.dft_functional.value),
-            empirical_dispersion = orm.Str(self.empirical_dispersion.value),
-            basis_set_opt = orm.Str(self.basis_set_opt.value),
-            basis_set_scf = orm.Str(self.basis_set_scf.value),
-            multiplicity_list = orm.List(list=list(map(int, self.multiplicity_list.value.split()))),
-            structure = self.input_structure
+            functional=orm.Str(self.dft_functional.value),
+            empirical_dispersion=orm.Str(self.empirical_dispersion.value),
+            basis_set_opt=orm.Str(self.basis_set_opt.value),
+            basis_set_scf=orm.Str(self.basis_set_scf.value),
+            multiplicity_list=orm.List(
+                list=list(map(int, self.multiplicity_list.value.split()))
+            ),
+            structure=self.input_structure,
         )
         self.state = self.State.SUCCESS
-    
+
     @traitlets.default("state")
     def _default_state(self):
         return self.State.INIT
@@ -183,7 +209,6 @@ class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
 class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
     """Integrated widget for the selection of structures from different sources."""
 
-
     # We use traitlets to connect the different steps.
     # Note that we can use dlinked transformations, they do not need to be of the same type.
     inputs = traitlets.Dict()
@@ -191,34 +216,78 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
 
     def __init__(self, **kwargs):
         self.configuration_label = ipw.HTML("Specify computational resources.")
-        
+
         # Codes.
-        self.gaussian_code_dropdown = awb.ComputationalResourcesWidget(description="Gaussian", input_plugin='gaussian')
+        self.gaussian_code_dropdown = awb.ComputationalResourcesWidget(
+            description="Gaussian", input_plugin="gaussian"
+        )
         self.gaussian_code_dropdown.observe(self._update_state, ["value"])
-        self.cubegen_code_dropdown = awb.ComputationalResourcesWidget(description="Cubegen", input_plugin='gaussian.cubegen')
+        self.cubegen_code_dropdown = awb.ComputationalResourcesWidget(
+            description="Cubegen", input_plugin="gaussian.cubegen"
+        )
         self.cubegen_code_dropdown.observe(self._update_state, ["value"])
-        self.formchk_code_dropdown = awb.ComputationalResourcesWidget(description="Formchk", input_plugin='gaussian.formchk')
+        self.formchk_code_dropdown = awb.ComputationalResourcesWidget(
+            description="Formchk", input_plugin="gaussian.formchk"
+        )
         self.formchk_code_dropdown.observe(self._update_state, ["value"])
 
-        
         # Resournces.
-        self.n_mpi_tasks_widget = ipw.IntText(description="# MPI tasks", value=1, min=1, style={"description_width": "100px"})
-        self.memory_widget = ipw.IntText(description="Memory (Mb)", value=300, step=100, min=0, style={"description_width": "100px"})
-        self.run_time_widget = ipw.IntText(description="Runtime (mins)", value=120, min=0, style={"description_width": "100px"})
+        self.n_mpi_tasks_widget = ipw.IntText(
+            description="# MPI tasks",
+            value=1,
+            min=1,
+            style={"description_width": "100px"},
+        )
+        self.memory_widget = ipw.IntText(
+            description="Memory (Mb)",
+            value=300,
+            step=100,
+            min=0,
+            style={"description_width": "100px"},
+        )
+        self.run_time_widget = ipw.IntText(
+            description="Runtime (mins)",
+            value=120,
+            min=0,
+            style={"description_width": "100px"},
+        )
 
         # We update the step's state whenever there is a change to the configuration or the order status.
         self.observe(self._update_state, ["inputs"])
-        
-        self.btn_submit_mol_opt = awb.SubmitButtonWidget(GaussianSpinWorkChain, input_dictionary_function=self.prepare_spin_calc)
-        self.btn_submit_mol_opt.btn_submit.disabled = True
-        traitlets.dlink((self.btn_submit_mol_opt, 'process'), (self, 'process'))
 
-        super().__init__([ipw.HBox([ipw.VBox([self.gaussian_code_dropdown,
-                          self.cubegen_code_dropdown,
-                          self.formchk_code_dropdown]), ipw.VBox([self.n_mpi_tasks_widget, self.memory_widget, self.run_time_widget])]), self.btn_submit_mol_opt], **kwargs)
-        
+        self.btn_submit_mol_opt = awb.SubmitButtonWidget(
+            GaussianSpinWorkChain, input_dictionary_function=self.prepare_spin_calc
+        )
+        self.btn_submit_mol_opt.btn_submit.disabled = True
+        traitlets.dlink((self.btn_submit_mol_opt, "process"), (self, "process"))
+
+        super().__init__(
+            [
+                ipw.HBox(
+                    [
+                        ipw.VBox(
+                            [
+                                self.gaussian_code_dropdown,
+                                self.cubegen_code_dropdown,
+                                self.formchk_code_dropdown,
+                            ]
+                        ),
+                        ipw.VBox(
+                            [
+                                self.n_mpi_tasks_widget,
+                                self.memory_widget,
+                                self.run_time_widget,
+                            ]
+                        ),
+                    ]
+                ),
+                self.btn_submit_mol_opt,
+            ],
+            **kwargs
+        )
+
     def reset(self):
-        self.inputs ={}
+        self.inputs = {}
         self.state = self.State.INIT
 
     def _update_state(self, _=None):
@@ -226,7 +295,11 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
         if self.inputs:
 
             # All codes are provided.
-            if self.gaussian_code_dropdown.value and self.cubegen_code_dropdown.value and self.formchk_code_dropdown.value:
+            if (
+                self.gaussian_code_dropdown.value
+                and self.cubegen_code_dropdown.value
+                and self.formchk_code_dropdown.value
+            ):
                 self.state = self.State.CONFIGURED
                 self.btn_submit_mol_opt.btn_submit.disabled = False
             else:
@@ -236,10 +309,9 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
         else:
             self.state = self.State.INIT
             self.btn_submit_mol_opt.btn_submit.disabled = True
-    
+
     def prepare_spin_calc(self):
         builder = GaussianSpinWorkChain.get_builder()
-        
 
         # Input nodes.
         for key, value in self.inputs.items():
@@ -249,21 +321,23 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
         builder.gaussian_code = self.gaussian_code_dropdown.value
         builder.formchk_code = self.formchk_code_dropdown.value
         builder.cubegen_code = self.cubegen_code_dropdown.value
-        
+
         # Resources.
-        builder.options =  orm.Dict(dict={
-            "resources": {
-                "num_machines": 1,
-                "tot_num_mpiprocs": self.n_mpi_tasks_widget.value,
+        builder.options = orm.Dict(
+            dict={
+                "resources": {
+                    "num_machines": 1,
+                    "tot_num_mpiprocs": self.n_mpi_tasks_widget.value,
                 },
-            "max_memory_kb": int(1.25 * self.memory_widget.value) * 1024,
-            "max_wallclock_seconds": 60 * self.run_time_widget.value,
-            })
-        
-        
+                "max_memory_kb": int(1.25 * self.memory_widget.value) * 1024,
+                "max_wallclock_seconds": 60 * self.run_time_widget.value,
+            }
+        )
+
         self.state = self.State.SUCCESS
 
         return builder
+
 
 class ViewGaussianWorkChainStatusAndResultsStep(ipw.VBox, awb.WizardAppWidgetStep):
 
@@ -311,7 +385,10 @@ class ViewGaussianWorkChainStatusAndResultsStep(ipw.VBox, awb.WizardAppWidgetSte
                 engine.ProcessState.WAITING,
             ):
                 self.state = self.State.ACTIVE
-            elif process_state in (engine.ProcessState.EXCEPTED, engine.ProcessState.KILLED):
+            elif process_state in (
+                engine.ProcessState.EXCEPTED,
+                engine.ProcessState.KILLED,
+            ):
                 self.state = self.State.FAIL
             elif process_state is engine.ProcessState.FINISHED:
                 self.state = self.State.SUCCESS
