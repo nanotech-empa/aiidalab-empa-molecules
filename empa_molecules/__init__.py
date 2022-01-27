@@ -1,4 +1,4 @@
-from aiidalab_qe.version import __version__
+from empa_molecules.version import __version__
 
 __all__ = [
     "__version__",
