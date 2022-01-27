@@ -1,36 +1,25 @@
+---
 # Run basic tests for this app on the latest aiidalab-docker image.
 
 name: continuous-integration
 
-on:
-  [push]
+on: [push, pull_request]
 
 jobs:
 
-  test-app:
+    pre-commit:
+        runs-on: ubuntu-latest
 
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@v2
 
-    strategy:
-      matrix:
-        tag: [ stable, latest ]
-        browser: [ chrome, firefox ]
-      fail-fast: false
+            - name: Setup Python
+              uses: actions/setup-python@v2
+              with:
+                  python-version: 3.8
 
-    steps:
-
-      - name: Check out app
-        uses: actions/checkout@v2
-
-      - name: Test app
-        uses: aiidalab/aiidalab-test-app-action@v2
-        with:
-          image: aiidalab/aiidalab-docker-stack:${{ matrix.tag }}
-          browser: ${{ matrix.browser }}
-
-      - name: Upload screenshots as artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
-          path: 'screenshots/'
+            - name: Install dependencies
+              run: |
+                  python -m pip install .[dev]
+            - name: Run pre-commit
+              run: pre-commit run --all-files || ( git status --short ; git diff ; exit 1 )
