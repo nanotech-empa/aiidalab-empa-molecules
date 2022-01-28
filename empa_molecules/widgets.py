@@ -1,13 +1,18 @@
+import datetime
+import importlib
 import threading
 from dataclasses import dataclass
 
 import aiida_nanotech_empa.utils.gaussian_wcs_postprocess as pp
 import aiidalab_widgets_base as awb
 import ipywidgets as ipw
+import jinja2
 import traitlets
 from aiida import engine, orm
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from IPython.display import clear_output, display
+
+from .utils import render_thumbnail
 
 
 class NodeViewWidget(ipw.VBox):
@@ -231,3 +236,177 @@ class WorkChainViewer(ipw.VBox):
             children=[self.title, self._output],
             **kwargs,
         )
+
+
+class SearchCompletedWidget(ipw.VBox):
+
+    pks = traitlets.List(allow_none=True)
+
+    def __init__(self, workchain_class, fields=None):
+
+        # search UI
+        self.workchain_class = workchain_class
+        style = {"description_width": "150px"}
+        layout = ipw.Layout(width="600px")
+        inp_pks = ipw.Text(
+            description="PKs",
+            placeholder="e.g. 4062 4753 (space separated)",
+            layout=layout,
+            style=style,
+        )
+        pks_wrong_syntax = ipw.HTML(
+            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
+            layout={"visibility": "hidden"},
+        )
+
+        def observe_inp_pks(_=None):
+            try:
+                pks_list = list(map(int, inp_pks.value.strip().split()))
+                self.pks = pks_list or None
+            except ValueError:
+                pks_wrong_syntax.layout.visibility = "visible"
+                return
+            pks_wrong_syntax.layout.visibility = "hidden"
+
+        inp_pks.observe(observe_inp_pks, names="value")
+
+        self.inp_formula = ipw.Text(
+            description="Formulas:",
+            placeholder="e.g. C44H16 C36H4",
+            layout=layout,
+            style=style,
+        )
+        self.text_description = ipw.Text(
+            description="Calculation Name: ",
+            placeholder="e.g. keywords",
+            layout=layout,
+            style=style,
+        )
+
+        # ---------
+        # date selection
+        dt_now = datetime.datetime.now()
+        dt_from = dt_now - datetime.timedelta(days=20)
+        self.date_start = ipw.Text(
+            value=dt_from.strftime("%Y-%m-%d"),
+            description="From: ",
+            style={"description_width": "60px"},
+            layout={"width": "225px"},
+        )
+
+        self.date_end = ipw.Text(
+            value=dt_now.strftime("%Y-%m-%d"),
+            description="To: ",
+            style={"description_width": "60px"},
+            layout={"width": "225px"},
+        )
+
+        self.date_text = ipw.HTML(value="<p>Select the date range:</p>", width="150px")
+        # ---------
+
+        search_crit = [
+            ipw.HBox([inp_pks, pks_wrong_syntax]),
+            self.inp_formula,
+            self.text_description,
+            ipw.HBox([self.date_text, self.date_start, self.date_end]),
+        ]
+
+        button = ipw.Button(description="Search")
+
+        self.results = ipw.HTML()
+        self.info_out = ipw.Output()
+
+        def on_click(b):
+            with self.info_out:
+                clear_output()
+                self.search()
+
+        button.on_click(on_click)
+
+        self.show_comments_check = ipw.Checkbox(
+            value=False, description="show comments", indent=False
+        )
+
+        buttons_hbox = ipw.HBox([button, self.show_comments_check])
+
+        app = ipw.VBox(
+            children=search_crit + [buttons_hbox, self.results, self.info_out]
+        )
+
+        # self.search()
+        super(SearchCompletedWidget, self).__init__([app])
+
+        # display(app)
+
+    def search(self):
+
+        self.results.value = "searching..."
+        self.value = "searching..."
+
+        # html table header
+        column_names = {
+            "pk": "PK",
+            "ctime": "Creation Time",
+            "formula": "Formula",
+            "description": "Descrition",
+            "energy": "Energy (eV)",
+            "thumbnail": "Thumbnail",
+        }
+
+        # query AiiDA database
+
+        qb = orm.QueryBuilder()
+        qb.append(self.workchain_class, filters=self.prepare_query_filters())
+        qb.order_by({self.workchain_class: {"ctime": "desc"}})
+        rows = []
+        for node in qb.all(flat=True):
+            if "thumbnail" not in node.extras:
+                ase_structure = node.outputs.gs_structure.get_ase()
+                ase_structure.cell = None
+                ase_structure.pbc = None
+                node.set_extra("thumbnail", render_thumbnail(ase_structure))
+
+            row = {
+                "pk": node.pk,
+                "ctime": node.ctime.strftime("%Y-%m-%d %H:%M"),
+                "formula": node.outputs.gs_structure.get_formula(),
+                "description": node.description,
+                "energy": node.outputs.gs_energy.value,
+                "thumbnail": node.extras["thumbnail"],
+            }
+
+            rows.append(row)
+
+        template = jinja2.Template(
+            importlib.resources.read_text("empa_molecules.templates", "search.j2")
+        )
+        self.results.value = template.render(column_names=column_names, rows=rows)
+
+    def prepare_query_filters(self):
+        filters = {}
+
+        filters["attributes.exit_status"] = 0
+
+        if self.pks:
+            filters["id"] = {"in": self.pks}
+
+        formula_list = self.inp_formula.value.strip().split()
+        if self.inp_formula.value:
+            filters["extras.formula"] = {"in": formula_list}
+
+        if len(self.text_description.value) > 1:
+            filters["description"] = {
+                "like": "%{}%".format(self.text_description.value)
+            }
+
+        try:  # If the date range is valid, use it for the search
+            start_date = datetime.datetime.strptime(self.date_start.value, "%Y-%m-%d")
+            end_date = datetime.datetime.strptime(
+                self.date_end.value, "%Y-%m-%d"
+            ) + datetime.timedelta(hours=24)
+        except ValueError:  # Otherwise revert to the standard (i.e. last 10 days)
+            pass
+
+        filters["ctime"] = {"and": [{"<=": end_date}, {">": start_date}]}
+
+        return filters
