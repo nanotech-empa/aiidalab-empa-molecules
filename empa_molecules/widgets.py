@@ -1,3 +1,4 @@
+import datetime
 import threading
 from dataclasses import dataclass
 
@@ -231,3 +232,209 @@ class WorkChainViewer(ipw.VBox):
             children=[self.title, self._output],
             **kwargs,
         )
+
+
+class SearchCompletedWidget(ipw.VBox):
+
+    pks = traitlets.List(allow_none=True)
+
+    def __init__(self, workchain_class, fields=None):
+
+        # search UI
+        self.workchain_class = workchain_class
+        style = {"description_width": "150px"}
+        layout = ipw.Layout(width="600px")
+        inp_pks = ipw.Text(
+            description="PKs",
+            placeholder="e.g. 4062 4753 (space separated)",
+            layout=layout,
+            style=style,
+        )
+        pks_wrong_syntax = ipw.HTML(
+            value="""<i class="fa fa-times" style="color:red;font-size:2em;" ></i> wrong syntax""",
+            layout={"visibility": "hidden"},
+        )
+
+        def observe_inp_pks(_=None):
+            try:
+                pks_list = list(map(int, inp_pks.value.strip().split()))
+                self.pks = pks_list or None
+            except ValueError:
+                pks_wrong_syntax.layout.visibility = "visible"
+                return
+            pks_wrong_syntax.layout.visibility = "hidden"
+
+        inp_pks.observe(observe_inp_pks, names="value")
+
+        self.inp_formula = ipw.Text(
+            description="Formulas:",
+            placeholder="e.g. C44H16 C36H4",
+            layout=layout,
+            style=style,
+        )
+        self.text_description = ipw.Text(
+            description="Calculation Name: ",
+            placeholder="e.g. keywords",
+            layout=layout,
+            style=style,
+        )
+
+        # ---------
+        # date selection
+        dt_now = datetime.datetime.now()
+        dt_from = dt_now - datetime.timedelta(days=20)
+        self.date_start = ipw.Text(
+            value=dt_from.strftime("%Y-%m-%d"),
+            description="From: ",
+            style={"description_width": "60px"},
+            layout={"width": "225px"},
+        )
+
+        self.date_end = ipw.Text(
+            value=dt_now.strftime("%Y-%m-%d"),
+            description="To: ",
+            style={"description_width": "60px"},
+            layout={"width": "225px"},
+        )
+
+        self.date_text = ipw.HTML(value="<p>Select the date range:</p>", width="150px")
+        # ---------
+
+        search_crit = [
+            ipw.HBox([inp_pks, pks_wrong_syntax]),
+            self.inp_formula,
+            self.text_description,
+            ipw.HBox([self.date_text, self.date_start, self.date_end]),
+        ]
+
+        button = ipw.Button(description="Search")
+
+        self.results = ipw.HTML()
+        self.info_out = ipw.Output()
+
+        def on_click(b):
+            with self.info_out:
+                clear_output()
+                self.search()
+
+        button.on_click(on_click)
+
+        self.show_comments_check = ipw.Checkbox(
+            value=False, description="show comments", indent=False
+        )
+
+        buttons_hbox = ipw.HBox([button, self.show_comments_check])
+
+        app = ipw.VBox(
+            children=search_crit + [buttons_hbox, self.results, self.info_out]
+        )
+
+        # self.search()
+        super(SearchCompletedWidget, self).__init__([app])
+
+        # display(app)
+
+    def search(self):
+
+        self.results.value = "searching..."
+        self.value = "searching..."
+
+        # html table header
+        html = "<style>#aiida_results td,th {padding: 2px}</style>"
+        html += '<table border=1 id="aiida_results" style="margin:0px"><tr>'
+        html += "<th>PK</th>"
+        html += "<th>Creation Time</th>"
+        html += "<th >Formula</th>"
+        html += "<th>Calculation name</th>"
+        html += "<th>Energy(eV)</th>"
+        html += "</tr>"
+
+        # query AiiDA database
+
+        qb = orm.QueryBuilder()
+        qb.append(self.workchain_class, filters=self.prepare_query_filters())
+        qb.order_by({self.workchain_class: {"ctime": "desc"}})
+
+        for node in qb.all(flat=True):
+            thumbnail = ""
+            try:
+                thumbnail = node.extras["thumbnail"]
+            except KeyError:
+                pass
+            description = node.description
+            opt_structure = node.outputs.output_structure
+            out_params = node.outputs.output_parameters
+
+            # append table row
+            html += "<tr>"
+            html += "<td>%d</td>" % node.pk
+            html += "<td>%s</td>" % node.ctime.strftime("%Y-%m-%d %H:%M")
+            try:
+                html += (
+                    "<td>%s</td>" % node.extras["formula"]
+                )  # opt_structure.get_formula()
+            except KeyError:
+                html += "<td>%s</td>" % opt_structure.get_formula()
+            html += "<td>%s</td>" % node.description
+            html += "<td>%.4f</td>" % (float(out_params["energy"]))
+            # image with a link to structure export
+            html += (
+                '<td><a target="_blank" href="./export_structure.ipynb?uuid=%s">'
+                % opt_structure.uuid
+            )
+            html += (
+                '<img width="100px" src="data:image/png;base64,%s" title="PK%d: %s">'
+                % (thumbnail, opt_structure.pk, description)
+            )
+            html += "</a></td>"
+
+            if self.show_comments_check.value:
+                comment_area = "<div id='wrapper' style='overflow-y:auto; height:100px; line-height:1.5;'>"
+                comment_area += (
+                    '<a target="_blank" href="./comments.ipynb?pk=%s">add/view</a><br>'
+                    % node.pk
+                )
+                for comment in node.get_comments():
+                    comment_area += (
+                        "<hr style='padding:0px; margin:0px;' />"
+                        + comment.content.replace("\n", "<br>")
+                    )
+                comment_area += "</div>"
+                html += "<td>%s</td>" % (comment_area)
+
+            html += "</td>"
+            html += "</tr>"
+
+        html += "</table>"
+        html += "Found %d matching entries.<br>" % qb.count()
+
+        self.results.value = html
+
+    def prepare_query_filters(self):
+        filters = {}
+
+        filters["attributes.exit_status"] = 0
+
+        if self.pks:
+            filters["id"] = {"in": self.pks}
+
+        formula_list = self.inp_formula.value.strip().split()
+        if self.inp_formula.value:
+            filters["extras.formula"] = {"in": formula_list}
+
+        if len(self.text_description.value) > 1:
+            filters["description"] = {
+                "like": "%{}%".format(self.text_description.value)
+            }
+
+        try:  # If the date range is valid, use it for the search
+            start_date = datetime.datetime.strptime(self.date_start.value, "%Y-%m-%d")
+            end_date = datetime.datetime.strptime(
+                self.date_end.value, "%Y-%m-%d"
+            ) + datetime.timedelta(hours=24)
+        except ValueError:  # Otherwise revert to the standard (i.e. last 10 days)
+            pass
+
+        filters["ctime"] = {"and": [{"<=": end_date}, {">": start_date}]}
+
+        return filters
