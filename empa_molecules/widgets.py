@@ -360,20 +360,20 @@ class SearchCompletedWidget(ipw.VBox):
         qb.order_by({self.workchain_class: {"ctime": "desc"}})
         rows = []
         for node in qb.all(flat=True):
-            row = {
-                "pk": node.pk,
-                "ctime": node.ctime.strftime("%Y-%m-%d %H:%M"),
-                "formula": node.outputs.gs_structure.get_formula(),
-                "description": node.description,
-                "energy": node.outputs.gs_energy.value,
-            }
             if "thumbnail" not in node.extras:
                 ase_structure = node.outputs.gs_structure.get_ase()
                 ase_structure.cell = None
                 ase_structure.pbc = None
                 node.set_extra("thumbnail", render_thumbnail(ase_structure))
 
-            row["thumbnail"] = node.extras["thumbnail"]
+            row = {
+                "pk": node.pk,
+                "ctime": node.ctime.strftime("%Y-%m-%d %H:%M"),
+                "formula": node.outputs.gs_structure.get_formula(),
+                "description": node.description,
+                "energy": node.outputs.gs_energy.value,
+                "thumbnail": node.extras["thumbnail"],
+            }
 
             rows.append(row)
 
