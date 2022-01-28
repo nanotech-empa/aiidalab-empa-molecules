@@ -1,10 +1,12 @@
 import datetime
+import importlib
 import threading
 from dataclasses import dataclass
 
 import aiida_nanotech_empa.utils.gaussian_wcs_postprocess as pp
 import aiidalab_widgets_base as awb
 import ipywidgets as ipw
+import jinja2
 import traitlets
 from aiida import engine, orm
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
@@ -340,75 +342,39 @@ class SearchCompletedWidget(ipw.VBox):
         self.value = "searching..."
 
         # html table header
-        html = "<style>#aiida_results td,th {padding: 2px}</style>"
-        html += '<table border=1 id="aiida_results" style="margin:0px"><tr>'
-        html += "<th>PK</th>"
-        html += "<th>Creation Time</th>"
-        html += "<th >Formula</th>"
-        html += "<th>Calculation name</th>"
-        html += "<th>Energy(eV)</th>"
-        html += "</tr>"
+        column_names = {
+            "pk": "PK",
+            "ctime": "Creation Time",
+            "formula": "Formula",
+            "description": "Descrition",
+            "energy": "Energy (eV)",
+            "thumbnail": "Thumbnail",
+        }
 
         # query AiiDA database
 
         qb = orm.QueryBuilder()
         qb.append(self.workchain_class, filters=self.prepare_query_filters())
         qb.order_by({self.workchain_class: {"ctime": "desc"}})
-
+        rows = []
         for node in qb.all(flat=True):
-            thumbnail = ""
+            row = {
+                "pk": node.pk,
+                "ctime": node.ctime.strftime("%Y-%m-%d %H:%M"),
+                "formula": node.outputs.gs_structure.get_formula(),
+                "description": node.description,
+                "energy": node.outputs.gs_energy.value,
+            }
             try:
-                thumbnail = node.extras["thumbnail"]
+                row["thumbnail"] = node.extras["thumbnail"]
             except KeyError:
-                pass
-            description = node.description
-            opt_structure = node.outputs.output_structure
-            out_params = node.outputs.output_parameters
+                row["thumbnail"] = ""
+            rows.append(row)
 
-            # append table row
-            html += "<tr>"
-            html += "<td>%d</td>" % node.pk
-            html += "<td>%s</td>" % node.ctime.strftime("%Y-%m-%d %H:%M")
-            try:
-                html += (
-                    "<td>%s</td>" % node.extras["formula"]
-                )  # opt_structure.get_formula()
-            except KeyError:
-                html += "<td>%s</td>" % opt_structure.get_formula()
-            html += "<td>%s</td>" % node.description
-            html += "<td>%.4f</td>" % (float(out_params["energy"]))
-            # image with a link to structure export
-            html += (
-                '<td><a target="_blank" href="./export_structure.ipynb?uuid=%s">'
-                % opt_structure.uuid
-            )
-            html += (
-                '<img width="100px" src="data:image/png;base64,%s" title="PK%d: %s">'
-                % (thumbnail, opt_structure.pk, description)
-            )
-            html += "</a></td>"
-
-            if self.show_comments_check.value:
-                comment_area = "<div id='wrapper' style='overflow-y:auto; height:100px; line-height:1.5;'>"
-                comment_area += (
-                    '<a target="_blank" href="./comments.ipynb?pk=%s">add/view</a><br>'
-                    % node.pk
-                )
-                for comment in node.get_comments():
-                    comment_area += (
-                        "<hr style='padding:0px; margin:0px;' />"
-                        + comment.content.replace("\n", "<br>")
-                    )
-                comment_area += "</div>"
-                html += "<td>%s</td>" % (comment_area)
-
-            html += "</td>"
-            html += "</tr>"
-
-        html += "</table>"
-        html += "Found %d matching entries.<br>" % qb.count()
-
-        self.results.value = html
+        template = jinja2.Template(
+            importlib.resources.read_text("empa_molecules.templates", "search.j2")
+        )
+        self.results.value = template.render(column_names=column_names, rows=rows)
 
     def prepare_query_filters(self):
         filters = {}

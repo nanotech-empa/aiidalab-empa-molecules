@@ -1,0 +1,29 @@
+<style>#aiida_results td,th {padding: 2px}</style>
+
+<table border=1 id="aiida_results" style="margin:0px">
+
+<tr>
+    <th> {{ column_names['pk'] }} </th>
+    <th> {{ column_names['ctime'] }} </th>
+    <th> {{ column_names['formula'] }} </th>
+    <th> {{ column_names['description'] }} </th>
+    <th> {{ column_names['energy'] }} </th>
+    <th> {{ column_names['thumbnail'] }} </th>
+</tr>
+
+{% for row in rows %}
+
+<tr>
+    <td> <a target="_blank" href="./spin_calculation.ipynb?pk={{ row['pk'] }}"> {{ row['pk'] }}</a> </td>
+    <td> {{ row['ctime'] }} </td>
+    <td> {{ row['formula'] }} </td>
+    <td>{{ row['description'] }} </td>
+    <td> {{ row['energy'] }} </td>
+    <td><img width="100px" src="data:image/png;base64," title="PK{{ row['pk'] }}: "> {{ row['thumbnail'] }}  </td>
+</tr>
+{% endfor %}
+
+
+</table>
+
+Found 1 matching entries.<br>
