@@ -12,6 +12,8 @@ from aiida import engine, orm
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from IPython.display import clear_output, display
 
+from .utils import render_thumbnail
+
 
 class NodeViewWidget(ipw.VBox):
 
@@ -365,10 +367,14 @@ class SearchCompletedWidget(ipw.VBox):
                 "description": node.description,
                 "energy": node.outputs.gs_energy.value,
             }
-            try:
-                row["thumbnail"] = node.extras["thumbnail"]
-            except KeyError:
-                row["thumbnail"] = ""
+            if "thumbnail" not in node.extras:
+                ase_structure = node.outputs.gs_structure.get_ase()
+                ase_structure.cell = None
+                ase_structure.pbc = None
+                node.set_extra("thumbnail", render_thumbnail(ase_structure))
+
+            row["thumbnail"] = node.extras["thumbnail"]
+
             rows.append(row)
 
         template = jinja2.Template(

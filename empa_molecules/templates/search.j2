@@ -19,7 +19,7 @@
     <td> {{ row['formula'] }} </td>
     <td>{{ row['description'] }} </td>
     <td> {{ row['energy'] }} </td>
-    <td><img width="100px" src="data:image/png;base64," title="PK{{ row['pk'] }}: "> {{ row['thumbnail'] }}  </td>
+    <td><img width="100px" src="data:image/png;base64,{{ row['thumbnail'] }}" title="image"> </td>
 </tr>
 {% endfor %}
 
