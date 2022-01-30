@@ -310,33 +310,23 @@ class SearchCompletedWidget(ipw.VBox):
             self.text_description,
             ipw.HBox([self.date_text, self.date_start, self.date_end]),
         ]
-
-        button = ipw.Button(description="Search")
-
         self.results = ipw.HTML()
         self.info_out = ipw.Output()
+
+        search_button = ipw.Button(description="Search")
 
         def on_click(b):
             with self.info_out:
                 clear_output()
                 self.search()
 
-        button.on_click(on_click)
-
-        self.show_comments_check = ipw.Checkbox(
-            value=False, description="show comments", indent=False
-        )
-
-        buttons_hbox = ipw.HBox([button, self.show_comments_check])
+        search_button.on_click(on_click)
 
         app = ipw.VBox(
-            children=search_crit + [buttons_hbox, self.results, self.info_out]
+            children=search_crit + [search_button, self.results, self.info_out]
         )
 
-        # self.search()
         super(SearchCompletedWidget, self).__init__([app])
-
-        # display(app)
 
     def search(self):
 
