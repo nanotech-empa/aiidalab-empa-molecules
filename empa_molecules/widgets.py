@@ -193,6 +193,22 @@ class WorkChainViewer(ipw.VBox):
             </h4>
             """
         )
+        cube_options = [out for out in self.node.outputs if "cube_images" in out]
+
+        self.cube_files = ipw.Dropdown(
+            description="Select orbitals:",
+            options=cube_options,
+            value=None,
+            style={"description_width": "initial"},
+        )
+        self.cube_files.observe(self.select_cube_images, names="value")
+
+        self._tabs = ipw.Tab()
+        self._tabs.set_title(0, "Summary")
+        self._tabs.set_title(1, "Orbitals")
+        self._out1 = ipw.Output()
+        self._out2 = ipw.Output()
+        self._tabs.children = [self._out1, ipw.VBox([self.cube_files, self._out2])]
 
         self._output = ipw.Output()
 
@@ -211,20 +227,12 @@ class WorkChainViewer(ipw.VBox):
                 engine.ProcessState.KILLED,
             ):
                 display(ipw.HTML("Simulation couldn't be completed, sorry."))
+
             elif node.process_state is engine.ProcessState.FINISHED:
                 if node.exit_status == 0:
-                    tab = ipw.Tab()
-                    tab.set_title(0, "Summary")
-                    tab.set_title(1, "Images")
-                    out1 = ipw.Output()
-                    with out1:
+                    display(self._tabs)
+                    with self._out1:
                         pp.make_report(node, nb=True)
-                    out2 = ipw.Output()
-                    with out2:
-                        pp.plot_cube_images(node.outputs.gs_cube_images)
-                    tab.children = [out1, out2]
-
-                    display(tab)
                 else:
                     display(
                         ipw.HTML(
@@ -236,6 +244,11 @@ class WorkChainViewer(ipw.VBox):
             children=[self.title, self._output],
             **kwargs,
         )
+
+    def select_cube_images(self, _=None):
+        with self._out2:
+            clear_output()
+            pp.plot_cube_images(getattr(self.node.outputs, self.cube_files.value))
 
 
 class SearchCompletedWidget(ipw.VBox):
