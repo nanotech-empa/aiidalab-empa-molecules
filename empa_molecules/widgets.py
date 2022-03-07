@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
 import datetime
 import importlib
 import threading
 from dataclasses import dataclass
 
 import aiida_nanotech_empa.utils.gaussian_wcs_postprocess as pp
+import aiida_nanotech_empa.utils.stm_tools as stm
 import aiidalab_widgets_base as awb
 import ipywidgets as ipw
 import jinja2
@@ -193,26 +195,78 @@ class WorkChainViewer(ipw.VBox):
             </h4>
             """
         )
-        cube_options = [out for out in self.node.outputs if "cube_images" in out]
 
+        # Cube images options.
         self.cube_files = ipw.Dropdown(
             description="Select orbitals:",
-            options=cube_options,
+            options=[out for out in self.node.outputs if "cube_images" in out],
             value=None,
             style={"description_width": "initial"},
         )
-        self.cube_files.observe(self.select_cube_images, names="value")
+        self.cube_files.observe(self._select_cube_images, names="value")
 
+        # SPM options.
+        self._cube_files_for_spm = ipw.Dropdown(
+            description="Select orbitals:",
+            options=[out for out in self.node.outputs if "cube_planes" in out],
+            value=None,
+            style={"description_width": "initial"},
+        )
+        self._cube_files_for_spm.observe(self._update_cube_files_for_spm, names="value")
+        self._orbitals = ipw.Dropdown(description="Orbitals:", options=[])
+        self._extrap_planes = ipw.Dropdown(
+            description="Extrapolation planes:",
+            options=[],
+            style={"description_width": "initial"},
+        )
+        self._heights = ipw.FloatSlider(description="Heights:")
+        ipw.dlink(
+            (self._extrap_planes, "value"),
+            (self._heights, "max"),
+            transform=lambda v: v + 5.0 if v else 0.0,
+        )
+        ipw.dlink(
+            (self._extrap_planes, "value"),
+            (self._heights, "min"),
+            transform=lambda v: v or 0.0,
+        )
+        self._kind = ipw.Dropdown(
+            description="Kind:",
+            options=[("Orbital", "orb"), ("Orbitalˆ2", "orb2"), ("STS", "sts")],
+        )
+        self._spin = ipw.Dropdown(
+            description="Spin:", value=0, options={"Up": 0, "Down": 1}
+        )
+        spm_plot = ipw.Button(description="Plot")
+        spm_plot.on_click(self._plot_spm)
+        spm_clear = ipw.Button(description="Clear")
+        spm_clear.on_click(self._clear_spm)
+
+        # Displayed Tabs.
         self._tabs = ipw.Tab()
         self._tabs.set_title(0, "Summary")
         self._tabs.set_title(1, "Orbitals")
-        self._out1 = ipw.Output()
-        self._out2 = ipw.Output()
-        self._tabs.children = [self._out1, ipw.VBox([self.cube_files, self._out2])]
+        self._tabs.set_title(2, "SPM")
+        self._out_summary = ipw.Output()
+        self._out_orbitals = ipw.Output()
+        self._out_spm = ipw.Output()
+        self._tabs.children = [
+            self._out_summary,
+            ipw.VBox([self.cube_files, self._out_orbitals]),
+            ipw.VBox(
+                [
+                    ipw.HBox([self._cube_files_for_spm, self._heights]),
+                    ipw.HBox([self._orbitals, self._extrap_planes]),
+                    ipw.HBox([self._spin, self._kind]),
+                    ipw.HBox([spm_plot, spm_clear]),
+                    self._out_spm,
+                ]
+            ),
+        ]
 
-        self._output = ipw.Output()
+        _output = ipw.Output()
 
-        with self._output:
+        with _output:
             clear_output()
             if node.process_state in (
                 engine.ProcessState.CREATED,
@@ -231,7 +285,7 @@ class WorkChainViewer(ipw.VBox):
             elif node.process_state is engine.ProcessState.FINISHED:
                 if node.exit_status == 0:
                     display(self._tabs)
-                    with self._out1:
+                    with self._out_summary:
                         pp.make_report(node, nb=True)
                 else:
                     display(
@@ -241,14 +295,48 @@ class WorkChainViewer(ipw.VBox):
                     )
 
         super().__init__(
-            children=[self.title, self._output],
+            children=[self.title, _output],
             **kwargs,
         )
 
-    def select_cube_images(self, _=None):
-        with self._out2:
+    def _select_cube_images(self, _=None):
+        with self._out_orbitals:
             clear_output()
             pp.plot_cube_images(getattr(self.node.outputs, self.cube_files.value))
+
+    def _update_cube_files_for_spm(self, _=None):
+        cube_planes = getattr(self.node.outputs, self._cube_files_for_spm.value)
+        cpa_dict = stm.process_cube_planes_array(cube_planes)
+        self._orbitals.options = [
+            (i + 1, i) for i in sorted(cpa_dict["mo_planes"].keys())
+        ]
+        self._extrap_planes.options = cpa_dict["heights"]
+        self._heights.value = self._extrap_planes.value + 3
+
+    def _plot_spm(self, _=None):
+        with self._out_spm:
+            selected_planes = self._cube_files_for_spm.value
+            cpa = getattr(self.node.outputs, selected_planes)
+            sop = dict(
+                getattr(
+                    self.node.outputs,
+                    selected_planes.replace("_cube_planes", "_out_params"),
+                )
+            )
+            stm.plot_mapping(
+                sop,
+                cpa,
+                self._orbitals.value,
+                self._spin.value,
+                kind=self._kind.value,
+                h=self._heights.value,
+                extrap_h=self._extrap_planes.value,
+                fwhm=0.05,
+            )
+
+    def _clear_spm(self, _=None):
+        with self._out_spm:
+            clear_output()
 
 
 class SearchCompletedWidget(ipw.VBox):
