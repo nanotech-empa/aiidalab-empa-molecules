@@ -189,16 +189,16 @@ class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
             self.state = self.State.INIT
 
     def confirm(self, _=None):
-        self.inputs = dict(
-            functional=orm.Str(self.dft_functional.value),
-            empirical_dispersion=orm.Str(self.empirical_dispersion.value),
-            basis_set_opt=orm.Str(self.basis_set_opt.value),
-            basis_set_scf=orm.Str(self.basis_set_scf.value),
-            multiplicity_list=orm.List(
+        self.inputs = {
+            "functional": orm.Str(self.dft_functional.value),
+            "empirical_dispersion": orm.Str(self.empirical_dispersion.value),
+            "basis_set_opt": orm.Str(self.basis_set_opt.value),
+            "basis_set_scf": orm.Str(self.basis_set_scf.value),
+            "multiplicity_list": orm.List(
                 list=list(map(int, self.multiplicity_list.value.split()))
             ),
-            structure=self.input_structure,
-        )
+            "structure": self.input_structure,
+        }
         self.state = self.State.SUCCESS
 
     @traitlets.default("state")

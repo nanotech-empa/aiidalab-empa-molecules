@@ -37,6 +37,13 @@ repos:
             args: [--count, --show-source, --statistics]
             additional_dependencies:
                 - flake8-bugbear
+                - flake8-builtins
+                - flake8-comprehensions
+                - flake8-debugger
+                - flake8-logging-format
+                - pep8-naming
+                - pyflakes
+                - tryceratops
     - repo: https://github.com/asottile/setup-cfg-fmt
       rev: v2.2.0
       hooks:
