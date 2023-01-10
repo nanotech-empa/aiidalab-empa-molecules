@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import datetime
 import importlib
 import threading
@@ -427,7 +426,7 @@ class SearchCompletedWidget(ipw.VBox):
             children=search_crit + [search_button, self.results, self.info_out]
         )
 
-        super(SearchCompletedWidget, self).__init__([app])
+        super().__init__([app])
 
     def search(self):
 
@@ -486,9 +485,7 @@ class SearchCompletedWidget(ipw.VBox):
             filters["extras.formula"] = {"in": formula_list}
 
         if len(self.text_description.value) > 1:
-            filters["description"] = {
-                "like": "%{}%".format(self.text_description.value)
-            }
+            filters["description"] = {"like": f"%{self.text_description.value}%"}
 
         try:  # If the date range is valid, use it for the search
             start_date = datetime.datetime.strptime(self.date_start.value, "%Y-%m-%d")
