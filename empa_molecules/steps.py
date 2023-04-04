@@ -104,7 +104,6 @@ class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
     input_structure = traitlets.Instance(StructureData, allow_none=True)
 
     def __init__(self, **kwargs):
-
         self.dft_functional = ipw.Dropdown(
             description="DFT functional:",
             value="B3LYP",
@@ -293,7 +292,6 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
     def _update_state(self, _=None):
         "Update the step's state based on the order status and configuration traits."
         if self.inputs:
-
             # All codes are provided.
             if (
                 self.gaussian_code_dropdown.value
@@ -340,7 +338,6 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
 
 
 class ViewGaussianWorkChainStatusAndResultsStep(ipw.VBox, awb.WizardAppWidgetStep):
-
     process = traitlets.Instance(orm.ProcessNode, allow_none=True)
 
     def __init__(self, **kwargs):
