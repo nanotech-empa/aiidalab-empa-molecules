@@ -17,7 +17,6 @@ from .utils import render_thumbnail
 
 
 class NodeViewWidget(ipw.VBox):
-
     node = traitlets.Instance(orm.Node, allow_none=True)
 
     def __init__(self, **kwargs):
@@ -34,7 +33,6 @@ class NodeViewWidget(ipw.VBox):
 
 
 class WorkChainSelectorWidget(ipw.HBox):
-
     # The PK of a 'aiida.workflows:quantumespresso.pw.bands' WorkChainNode.
     value = traitlets.Int(allow_none=True)
 
@@ -339,11 +337,9 @@ class WorkChainViewer(ipw.VBox):
 
 
 class SearchCompletedWidget(ipw.VBox):
-
     pks = traitlets.List(allow_none=True)
 
     def __init__(self, workchain_class, fields=None):
-
         # search UI
         self.workchain_class = workchain_class
         style = {"description_width": "150px"}
@@ -429,7 +425,6 @@ class SearchCompletedWidget(ipw.VBox):
         super().__init__([app])
 
     def search(self):
-
         self.results.value = "searching..."
         self.value = "searching..."
 
