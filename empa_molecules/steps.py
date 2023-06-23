@@ -1,6 +1,6 @@
 import aiidalab_widgets_base as awb
 import ipywidgets as ipw
-import traitlets
+import traitlets as tr
 from aiida import engine, orm, plugins
 
 from .widgets import NodeViewWidget
@@ -12,7 +12,7 @@ GaussianSpinWorkChain = plugins.WorkflowFactory("nanotech_empa.gaussian.spin")
 class StructureSelectionStep(ipw.VBox, awb.WizardAppWidgetStep):
     """Integrated widget for the selection of structures from different sources."""
 
-    confirmed_structure = traitlets.Instance(StructureData, allow_none=True)
+    confirmed_structure = tr.Instance(StructureData, allow_none=True)
 
     def __init__(self, description=None, **kwargs):
         self.manager = awb.StructureManagerWidget(
@@ -57,7 +57,7 @@ class StructureSelectionStep(ipw.VBox, awb.WizardAppWidgetStep):
             **kwargs
         )
 
-    @traitlets.default("state")
+    @tr.default("state")
     def _default_state(self):
         return self.State.READY
 
@@ -73,12 +73,12 @@ class StructureSelectionStep(ipw.VBox, awb.WizardAppWidgetStep):
             else:
                 self.state = self.State.SUCCESS
 
-    @traitlets.observe("confirmed_structure")
+    @tr.observe("confirmed_structure")
     def _observe_confirmed_structure(self, _):
         with self.hold_trait_notifications():
             self._update_state()
 
-    @traitlets.observe("state")
+    @tr.observe("state")
     def _observe_state(self, change):
         with self.hold_trait_notifications():
             state = change["new"]
@@ -100,8 +100,8 @@ class StructureSelectionStep(ipw.VBox, awb.WizardAppWidgetStep):
 class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
     """Widget to prepare gaussian inputs."""
 
-    inputs = traitlets.Dict()
-    input_structure = traitlets.Instance(StructureData, allow_none=True)
+    inputs = tr.Dict()
+    input_structure = tr.Instance(StructureData, allow_none=True)
 
     def __init__(self, **kwargs):
         self.dft_functional = ipw.Dropdown(
@@ -200,7 +200,7 @@ class ConfigureGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
         }
         self.state = self.State.SUCCESS
 
-    @traitlets.default("state")
+    @tr.default("state")
     def _default_state(self):
         return self.State.INIT
 
@@ -210,23 +210,23 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
 
     # We use traitlets to connect the different steps.
     # Note that we can use dlinked transformations, they do not need to be of the same type.
-    inputs = traitlets.Dict()
-    process = traitlets.Instance(orm.ProcessNode, allow_none=True)
+    inputs = tr.Dict()
+    value = tr.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
         self.configuration_label = ipw.HTML("Specify computational resources.")
 
         # Codes.
         self.gaussian_code_dropdown = awb.ComputationalResourcesWidget(
-            description="Gaussian", input_plugin="gaussian"
+            description="Gaussian", default_calc_job_plugin="gaussian"
         )
         self.gaussian_code_dropdown.observe(self._update_state, ["value"])
         self.cubegen_code_dropdown = awb.ComputationalResourcesWidget(
-            description="Cubegen", input_plugin="gaussian.cubegen"
+            description="Cubegen", default_calc_job_plugin="gaussian.cubegen"
         )
         self.cubegen_code_dropdown.observe(self._update_state, ["value"])
         self.formchk_code_dropdown = awb.ComputationalResourcesWidget(
-            description="Formchk", input_plugin="gaussian.formchk"
+            description="Formchk", default_calc_job_plugin="gaussian.formchk"
         )
         self.formchk_code_dropdown.observe(self._update_state, ["value"])
 
@@ -255,10 +255,14 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
         self.observe(self._update_state, ["inputs"])
 
         self.btn_submit_mol_opt = awb.SubmitButtonWidget(
-            GaussianSpinWorkChain, input_dictionary_function=self.prepare_spin_calc
+            GaussianSpinWorkChain, inputs_generator=self.prepare_spin_calc
         )
         self.btn_submit_mol_opt.btn_submit.disabled = True
-        traitlets.dlink((self.btn_submit_mol_opt, "process"), (self, "process"))
+        tr.dlink(
+            (self.btn_submit_mol_opt, "process"),
+            (self, "value"),
+            transform=lambda x: x.uuid if x else None,
+        )
 
         super().__init__(
             [
@@ -316,9 +320,9 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
             builder[key] = value
 
         # Codes.
-        builder.gaussian_code = self.gaussian_code_dropdown.value
-        builder.formchk_code = self.formchk_code_dropdown.value
-        builder.cubegen_code = self.cubegen_code_dropdown.value
+        builder.gaussian_code = orm.load_code(self.gaussian_code_dropdown.value)
+        builder.formchk_code = orm.load_code(self.formchk_code_dropdown.value)
+        builder.cubegen_code = orm.load_code(self.cubegen_code_dropdown.value)
 
         # Resources.
         builder.options = orm.Dict(
@@ -338,11 +342,12 @@ class SubmitGaussianCalculationStep(ipw.VBox, awb.WizardAppWidgetStep):
 
 
 class ViewGaussianWorkChainStatusAndResultsStep(ipw.VBox, awb.WizardAppWidgetStep):
-    process = traitlets.Instance(orm.ProcessNode, allow_none=True)
+    value = tr.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
+        self.process = None
         self.process_tree = awb.ProcessNodesTreeWidget()
-        ipw.dlink((self, "process"), (self.process_tree, "process"))
+        ipw.dlink((self, "value"), (self.process_tree, "value"))
 
         self.node_view = NodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
@@ -360,7 +365,7 @@ class ViewGaussianWorkChainStatusAndResultsStep(ipw.VBox, awb.WizardAppWidgetSte
                 self._update_state,
             ],
         )
-        ipw.dlink((self, "process"), (self.process_monitor, "process"))
+        ipw.dlink((self, "value"), (self.process_monitor, "value"))
 
         super().__init__([self.process_status], **kwargs)
 
@@ -369,7 +374,7 @@ class ViewGaussianWorkChainStatusAndResultsStep(ipw.VBox, awb.WizardAppWidgetSte
         return self.state is not self.State.ACTIVE
 
     def reset(self):
-        self.process = None
+        self.value = None
 
     def _update_state(self):
         if self.process is None:
@@ -390,6 +395,10 @@ class ViewGaussianWorkChainStatusAndResultsStep(ipw.VBox, awb.WizardAppWidgetSte
             elif process_state is engine.ProcessState.FINISHED:
                 self.state = self.State.SUCCESS
 
-    @traitlets.observe("process")
+    @tr.observe("value")
     def _observe_process(self, change):
+        if self.value is None:
+            self.process = None
+        else:
+            self.process = orm.load_node(self.value)
         self._update_state()
