@@ -34,7 +34,7 @@ class NodeViewWidget(ipw.VBox):
 
 class WorkChainSelectorWidget(ipw.HBox):
     # The PK of a 'aiida.workflows:quantumespresso.pw.bands' WorkChainNode.
-    value = traitlets.Int(allow_none=True)
+    value = traitlets.Unicode(allow_none=True)
 
     # When this trait is set to a positive value, the work chains are automatically
     # refreshed every `auto_refresh_interval` seconds.
@@ -59,7 +59,7 @@ class WorkChainSelectorWidget(ipw.HBox):
         ipw.dlink(
             (self.work_chains_selector, "value"),
             (self, "value"),
-            transform=lambda pk: None if pk is self._NO_PROCESS else pk,
+            transform=lambda uuid: None if uuid is self._NO_PROCESS else uuid,
         )
 
         self.refresh_work_chains_button = ipw.Button(description="Refresh")
@@ -82,6 +82,7 @@ class WorkChainSelectorWidget(ipw.HBox):
     @dataclass
     class WorkChainData:
         pk: int
+        uuid: str
         ctime: str
         state: str
         formula: str
@@ -97,12 +98,12 @@ class WorkChainSelectorWidget(ipw.HBox):
             order_by={"ctime": "desc"},
         )
         projected = builder.get_projected(
-            query_set, projections=["pk", "ctime", "state"]
+            query_set, projections=["pk", "uuid", "ctime", "state"]
         )
 
         for process in projected[1:]:
-            pk = process[0]
-            formula = orm.load_node(pk).inputs.structure.get_formula()
+            uuid = process[0]
+            formula = orm.load_node(uuid).inputs.structure.get_formula()
             yield cls.WorkChainData(formula=formula, *process)
 
     @traitlets.default("busy")
@@ -127,7 +128,7 @@ class WorkChainSelectorWidget(ipw.HBox):
                     self.work_chains_selector.options = [
                         ("New calculation...", self._NO_PROCESS)
                     ] + [
-                        (self.FMT_WORKCHAIN.format(wc=wc), wc.pk)
+                        (self.FMT_WORKCHAIN.format(wc=wc), wc.uuid)
                         for wc in self.find_work_chains()
                     ]
 
@@ -170,7 +171,7 @@ class WorkChainSelectorWidget(ipw.HBox):
 
         new = self._NO_PROCESS if change["new"] is None else change["new"]
 
-        if new not in {pk for _, pk in self.work_chains_selector.options}:
+        if new not in {uuid for _, uuid in self.work_chains_selector.options}:
             self.refresh_work_chains()
 
         self.work_chains_selector.value = new
