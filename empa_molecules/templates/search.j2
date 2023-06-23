@@ -14,7 +14,7 @@
 {% for row in rows %}
 
 <tr>
-    <td> <a target="_blank" href="./spin_calculation.ipynb?pk={{ row['pk'] }}"> {{ row['pk'] }}</a> </td>
+    <td> <a target="_blank" href="./spin_calculation.ipynb?uuid={{ row['uuid'] }}"> {{ row['pk'] }}</a> </td>
     <td> {{ row['ctime'] }} </td>
     <td> {{ row['formula'] }} </td>
     <td>{{ row['description'] }} </td>

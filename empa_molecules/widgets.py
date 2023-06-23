@@ -380,8 +380,7 @@ class SearchCompletedWidget(ipw.VBox):
             style=style,
         )
 
-        # ---------
-        # date selection
+        # Date selection
         dt_now = datetime.datetime.now()
         dt_from = dt_now - datetime.timedelta(days=20)
         self.date_start = ipw.Text(
@@ -399,7 +398,6 @@ class SearchCompletedWidget(ipw.VBox):
         )
 
         self.date_text = ipw.HTML(value="<p>Select the date range:</p>", width="150px")
-        # ---------
 
         search_crit = [
             ipw.HBox([inp_pks, pks_wrong_syntax]),
@@ -432,6 +430,7 @@ class SearchCompletedWidget(ipw.VBox):
         # html table header
         column_names = {
             "pk": "PK",
+            "uuid": "UUID",
             "ctime": "Creation Time",
             "formula": "Formula",
             "description": "Descrition",
@@ -439,8 +438,7 @@ class SearchCompletedWidget(ipw.VBox):
             "thumbnail": "Thumbnail",
         }
 
-        # query AiiDA database
-
+        # Query AiiDA database
         qb = orm.QueryBuilder()
         qb.append(self.workchain_class, filters=self.prepare_query_filters())
         qb.order_by({self.workchain_class: {"ctime": "desc"}})
@@ -454,6 +452,7 @@ class SearchCompletedWidget(ipw.VBox):
 
             row = {
                 "pk": node.pk,
+                "uuid": node.uuid,
                 "ctime": node.ctime.strftime("%Y-%m-%d %H:%M"),
                 "formula": node.outputs.gs_structure.get_formula(),
                 "description": node.description,
