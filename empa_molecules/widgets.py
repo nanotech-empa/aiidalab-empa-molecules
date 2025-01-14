@@ -104,7 +104,7 @@ class WorkChainSelectorWidget(ipw.HBox):
         for process in projected[1:]:
             uuid = process[0]
             formula = orm.load_node(uuid).inputs.structure.get_formula()
-            yield cls.WorkChainData(formula=formula, *process)
+            yield cls.WorkChainData(*process, formula=formula)
 
     @traitlets.default("busy")
     def _default_busy(self):
