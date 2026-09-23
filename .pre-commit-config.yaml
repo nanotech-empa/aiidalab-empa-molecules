@@ -41,6 +41,7 @@ repos:
                 - flake8-comprehensions
                 - flake8-debugger
                 - flake8-logging-format
+                - setuptools<81
                 - pep8-naming
                 - pyflakes
                 - tryceratops

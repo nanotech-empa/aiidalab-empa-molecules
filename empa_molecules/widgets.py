@@ -10,7 +10,7 @@ import ipywidgets as ipw
 import jinja2
 import traitlets
 from aiida import engine, orm
-from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
+from aiida.tools.query.calculation import CalculationQueryBuilder
 from IPython.display import clear_output, display
 
 from .utils import render_thumbnail
